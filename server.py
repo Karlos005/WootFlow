@@ -29,6 +29,7 @@ from core.effects_engine import (
     scale_color, PHYSICAL_KEYS_60HE, EQ_COLUMNS,
 )
 from core.effect_registry import EFFECT_LABELS, EFFECT_REGISTRY
+from core.analog_keys import AnalogTuning
 from audio_reactive import AudioReactive
 
 try:
@@ -445,6 +446,9 @@ class AppState:
         self.magnetic_influence = 3.0
         self.liquid_deform = 0.55
 
+        # Actuation point / Rapid Trigger tuning (per key, stored locally)
+        self.analog = AnalogTuning()
+
         # Keyboard input listener (pynput)
         self._kb_listener = None
 
@@ -483,6 +487,7 @@ class AppState:
         self.current_effect_name = s.get("effect", self.current_effect_name)
         self.mode = s.get("mode", self.mode)
         self.auto_start_enabled = bool(s.get("auto_start", self.auto_start_enabled))
+        self.analog = AnalogTuning.from_dict(s.get("analog"))
         log.info("Settings loaded: effect=%s brightness=%.0f%%",
                  self.current_effect_name, self.brightness * 100)
 
@@ -680,6 +685,7 @@ class AppState:
             "effect": self.current_effect_name,
             "mode": self.mode,
             "auto_start": self.auto_start_enabled,
+            "analog": self.analog.to_dict(),
         })
 
     def connect_keyboard(self) -> bool:
@@ -947,6 +953,7 @@ class AppState:
             "debugMode": self.debug_mode,
             "autoStartEnabled": self.auto_start_enabled,
             "autoStartSupported": self.auto_start_supported,
+            "analog": self.analog.to_dict(),
         }
         if self.auto_start_error:
             d["autoStartError"] = self.auto_start_error
@@ -1268,6 +1275,17 @@ async def handle_message(ws: WebSocket, msg: dict):
                 state.transition_to(mode)
             state.save_settings()
             await broadcast(state.get_state_dict())
+
+    elif action == "set_analog":
+        raw_keys = msg.get("keys", [])
+        key_ids = [k for k in raw_keys if isinstance(k, str) and len(k) < 8][:128]
+        patch = msg.get("patch", {})
+        if isinstance(patch, dict):
+            state.analog.apply(key_ids, patch)
+        if "tachyon" in msg:
+            state.analog.tachyon = bool(msg["tachyon"])
+        state.save_settings()
+        await broadcast(state.get_state_dict())
 
     elif action == "reconnect":
         state.disconnect_keyboard()

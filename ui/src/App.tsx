@@ -5,6 +5,7 @@ import { EffectsPanel } from "./components/EffectsPanel";
 import { SoundReactive } from "./components/SoundReactive";
 import { PerKeyPanel } from "./components/PerKeyPanel";
 import { Settings } from "./components/Settings";
+import { WootilityPage } from "./components/WootilityPage";
 import { KeyboardPreview } from "./components/KeyboardPreview";
 import type { Page } from "./types";
 import type { RGB } from "./types";
@@ -94,7 +95,7 @@ export default function App() {
       {/* Main content */}
       <div className="flex-1 flex flex-col min-w-0 pt-9">
         {/* Top bar with keyboard preview (always visible, except perkey and settings) */}
-        {page !== "perkey" && page !== "settings" && (
+        {page !== "perkey" && page !== "settings" && page !== "keyboard" && (
           <div className="px-5 pt-4 pb-2 shrink-0">
             <div className="wf-glass-panel wf-top-preview flex justify-center">
             <KeyboardPreview
@@ -109,6 +110,7 @@ export default function App() {
 
         {/* Page content */}
         <div className={`flex-1 p-5 overflow-y-auto custom-scroll ${page === "settings" ? "wf-settings-page" : ""}`}>
+          {page === "keyboard" && <WootilityPage state={state} send={send} keyColors={keyColors} />}
           {page === "effects" && <EffectsPanel state={state} send={send} />}
           {page === "sound" && <SoundReactive state={state} audio={audio} send={send} />}
           {page === "perkey" && <PerKeyPanel state={state} send={send} />}
