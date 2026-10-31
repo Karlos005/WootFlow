@@ -1,9 +1,10 @@
 import type { Page } from "../types";
 
 const NAV_ITEMS: { id: Page; label: string; icon: string }[] = [
+  { id: "keyboard", label: "Teclado", icon: "⌨" },
   { id: "effects", label: "Efeitos", icon: "✦" },
   { id: "sound", label: "Som", icon: "♫" },
-  { id: "perkey", label: "Per-Key", icon: "⌨" },
+  { id: "perkey", label: "Per-Key", icon: "▦" },
   { id: "settings", label: "Definições", icon: "⚙" },
 ];
 

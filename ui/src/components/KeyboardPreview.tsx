@@ -3,7 +3,7 @@ import type { KeyDef, RGB } from "../types";
 
 // ── ISO PT 60HE layout ──
 // Each key: [row(SDK), col(SDK), x_pos, width, label]
-const LAYOUT: KeyDef[] = [
+export const LAYOUT: KeyDef[] = [
   // Row 1 — Number row
   { row: 1, col: 0, x: 0, w: 1, label: "Esc" },
   { row: 1, col: 1, x: 1, w: 1, label: "1" },

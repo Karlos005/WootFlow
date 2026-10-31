@@ -16,6 +16,7 @@ export interface AppState {
   _sensitivity?: number;
   _smoothing?: number;
   pynputAvailable: boolean;
+  analog?: AnalogState;
   autoStartEnabled?: boolean;
   autoStartSupported?: boolean;
   autoStartError?: string;
@@ -36,7 +37,32 @@ export interface FrameData {
   delta: boolean;
 }
 
-export type Page = "effects" | "sound" | "perkey" | "settings";
+export type Page = "keyboard" | "effects" | "sound" | "perkey" | "settings";
+
+export interface KeyTuning {
+  actuation_mm: number;
+  rapid_trigger: boolean;
+  separate_sensitivity: boolean;
+  sensitivity_mm: number;
+  upstroke_mm: number;
+  downstroke_mm: number;
+}
+
+export interface AnalogState {
+  tachyon: boolean;
+  default: KeyTuning;
+  keys: Record<string, KeyTuning>; // "row-col" -> tuning
+}
+
+/** Patch sent to the backend; camelCase mirrors AnalogTuning.apply. */
+export interface AnalogPatch {
+  actuationMm?: number;
+  rapidTrigger?: boolean;
+  separateSensitivity?: boolean;
+  sensitivityMm?: number;
+  upstrokeMm?: number;
+  downstrokeMm?: number;
+}
 
 export interface HSV {
   h: number; // 0-360
