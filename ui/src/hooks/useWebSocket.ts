@@ -34,6 +34,7 @@ export function useWebSocket() {
   const [state, setState] = useState<AppState | null>(null);
   const [audio, setAudio] = useState<AudioData | null>(null);
   const [frame, setFrame] = useState<FrameData | null>(null);
+  const [keyDepth, setKeyDepth] = useState<Record<string, number>>({});
   const frameRef = useRef<Record<string, number[]>>({});
   const [connected, setConnected] = useState(false);
   const reconnectTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
@@ -120,6 +121,8 @@ export function useWebSocket() {
         const msg = JSON.parse(ev.data);
         if (msg.type === "state") {
           setState(msg as AppState);
+        } else if (msg.type === "analog_live") {
+          setKeyDepth(msg.keys ?? {});
         } else if (msg.type === "audio") {
           setAudio(msg as AudioData);
         } else if (msg.type === "frame") {
@@ -190,5 +193,5 @@ export function useWebSocket() {
     }
   }, []);
 
-  return { state, audio, frame, connected, diagnostics, send };
+  return { state, audio, frame, keyDepth, connected, diagnostics, send };
 }

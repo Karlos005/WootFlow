@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { LAYOUT } from "./KeyboardPreview";
+import { WootilityKeyboard, keyId } from "./WootilityKeyboard";
 import type { AnalogPatch, AppState, KeyTuning, RGB } from "../types";
 import "../wootility.css";
 
@@ -14,16 +15,24 @@ const DEFAULTS: KeyTuning = {
   downstroke_mm: 0.4,
 };
 
-const keyId = (row: number, col: number) => `${row}-${col}`;
-
 interface Props {
   state: AppState;
   send: (data: Record<string, unknown>) => void;
   keyColors?: Map<string, RGB>;
+  keyDepth?: Record<string, number>;
 }
 
-export function WootilityPage({ state, send, keyColors }: Props) {
+export function WootilityPage({ state, send, keyColors, keyDepth }: Props) {
   const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [view, setView] = useState<"live" | "rgb">("live");
+
+  // Só lê o teclado enquanto o desenho ao vivo está visível.
+  useEffect(() => {
+    if (view !== "live") return;
+    send({ action: "analog_live", enabled: true });
+    return () => send({ action: "analog_live", enabled: false });
+  }, [view, send]);
+
   const analog = state.analog;
 
   const tuningOf = useCallback(
@@ -61,8 +70,12 @@ export function WootilityPage({ state, send, keyColors }: Props) {
       <header className="wt-profile">
         <div className="wt-profile-badge">WF</div>
         <div className="wt-profile-name">Perfil de Escrita</div>
-        <span className="wt-chip">{state.device?.model ?? "Wooting"}</span>
+        <span className="wt-chip">{state.device?.model ?? "Wooting"}{state.device?.form_factor ? ` · ${state.device.form_factor}` : ""}</span>
         <div className="flex-1" />
+        <div className="wt-seg" role="group" aria-label="Aspeto das teclas">
+          <button type="button" className={view === "live" ? "on" : ""} onClick={() => setView("live")}>Ao vivo</button>
+          <button type="button" className={view === "rgb" ? "on" : ""} onClick={() => setView("rgb")}>RGB</button>
+        </div>
         <span
           className="wt-chip wt-chip-soft"
           title="Os valores são guardados no WootFlow; ainda não são gravados no firmware do teclado."
@@ -71,40 +84,14 @@ export function WootilityPage({ state, send, keyColors }: Props) {
         </span>
       </header>
 
-      <div className="wt-board">
-        <div className="wt-keyboard">
-          <div className="wt-keys">
-            {LAYOUT.map((k, i) => {
-              const id = keyId(k.row, k.col);
-              const row = (k.visualRow ?? k.row) - 1;
-              const live = keyColors?.get(id);
-              const hue = (360 + 320 - (k.x / 15) * 320) % 360;
-              const bg = live ? `rgb(${live.r} ${live.g} ${live.b})` : `hsl(${hue} 82% 42%)`;
-              const t = tuningOf(id);
-              const on = selected.has(id);
-              return (
-                <button
-                  key={`${id}-${i}`}
-                  type="button"
-                  className={`wt-key ${on ? "wt-key-on" : ""}`}
-                  style={{
-                    left: `calc(${(k.x / 15) * 100}% + 1.5px)`,
-                    top: `calc(${(row / 5) * 100}% + 1.5px)`,
-                    width: `calc(${(k.w / 15) * 100}% - 3px)`,
-                    height: "calc(20% - 3px)",
-                    background: bg,
-                  }}
-                  title={`${k.label || "Space"} · ${t.actuation_mm.toFixed(1)} mm${t.rapid_trigger ? " · RT" : ""}`}
-                  onClick={(e) => toggleKey(id, e.ctrlKey || e.shiftKey || e.metaKey)}
-                >
-                  {k.label}
-                  {on && <span className="wt-key-dot" />}
-                </button>
-              );
-            })}
-          </div>
-        </div>
-      </div>
+      <WootilityKeyboard
+        view={view}
+        keyColors={keyColors}
+        keyDepth={keyDepth}
+        selected={selected}
+        tuningOf={tuningOf}
+        onKeyClick={toggleKey}
+      />
 
       {selected.size === 0 && (
         <p className="wt-hint">

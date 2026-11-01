@@ -9,6 +9,7 @@ import time
 import random
 import threading
 from utils.wooting_rgb import WootFlowRGB, WOOTING_RGB_ROWS
+from core.devices import KeyboardProfile, default_profile
 
 
 # ============================================================================
@@ -81,6 +82,26 @@ PHYSICAL_KEYS_60HE = [
 
 ALL_KEYS = [(r, c) for row in PHYSICAL_KEYS_60HE for r, c in row]
 ALL_KEYS_SET = set(ALL_KEYS)
+
+# Colunas com LED no layout ativo (14 no 60HE). Atualizado por apply_profile().
+LAYOUT_COLS = 14
+ACTIVE_PROFILE: KeyboardProfile = default_profile()
+
+
+def apply_profile(profile: KeyboardProfile):
+    """Adapta os mapas de teclas ao teclado detetado.
+
+    Altera as listas/dicts no lugar para que os módulos que já os importaram
+    (server.py) vejam o novo layout. Efeitos criados depois lêem LAYOUT_COLS.
+    """
+    global LAYOUT_COLS, ACTIVE_PROFILE
+    ACTIVE_PROFILE = profile
+    PHYSICAL_KEYS_60HE[:] = [list(row) for row in profile.keys]
+    ALL_KEYS[:] = [(r, c) for row in PHYSICAL_KEYS_60HE for r, c in row]
+    ALL_KEYS_SET.clear()
+    ALL_KEYS_SET.update(ALL_KEYS)
+    LAYOUT_COLS = max(1, max((c for _, c in ALL_KEYS), default=13) + 1)
+    _rebuild_eq_columns()
 
 
 # ============================================================================
@@ -276,19 +297,19 @@ class FireEffect(Effect):
 
     def __init__(self):
         super().__init__()
-        self._heat = [[0.0] * 14 for _ in range(WOOTING_RGB_ROWS)]
+        self._heat = [[0.0] * LAYOUT_COLS for _ in range(WOOTING_RGB_ROWS)]
 
     def update(self, kb: WootFlowRGB, t: float):
         import random
         # Gerar calor na linha de baixo
-        for col in range(14):
+        for col in range(LAYOUT_COLS):
             self._heat[WOOTING_RGB_ROWS - 1][col] = random.uniform(0.6, 1.0)
 
         # Propagar para cima com diffusion
         for row in range(WOOTING_RGB_ROWS - 2, -1, -1):
-            for col in range(14):
+            for col in range(LAYOUT_COLS):
                 left = max(0, col - 1)
-                right = min(13, col + 1)
+                right = min(LAYOUT_COLS - 1, col + 1)
                 below = row + 1
                 avg = (
                     self._heat[below][left]
@@ -321,12 +342,12 @@ class MatrixRainEffect(Effect):
 
     def __init__(self):
         super().__init__()
-        self._drops = [0.0] * 14  # posição Y de cada gota
-        self._speeds = [0.0] * 14
+        self._drops = [0.0] * LAYOUT_COLS  # posição Y de cada gota
+        self._speeds = [0.0] * LAYOUT_COLS
         self.color1 = (0, 255, 70)
         self.speed = 1.0
         import random
-        for col in range(14):
+        for col in range(LAYOUT_COLS):
             self._drops[col] = random.uniform(-3, WOOTING_RGB_ROWS)
             self._speeds[col] = random.uniform(1.5, 4.0)
 
@@ -334,7 +355,7 @@ class MatrixRainEffect(Effect):
         import random
         dt = 1 / 60  # assume 60fps
 
-        for col in range(14):
+        for col in range(LAYOUT_COLS):
             self._drops[col] += self._speeds[col] * dt * self.speed * 3
             if self._drops[col] > WOOTING_RGB_ROWS + 3:
                 self._drops[col] = random.uniform(-4, -1)
@@ -1116,13 +1137,35 @@ class LivingHeatmapEffect(Effect):
 
 # Teclas físicas por coluna SDK (rows de baixo para cima)
 EQ_COLUMNS = {}  # col → [rows bottom-first]
-for _row_keys in PHYSICAL_KEYS_60HE:
-    for _r, _c in _row_keys:
-        if _c not in EQ_COLUMNS:
-            EQ_COLUMNS[_c] = []
-        EQ_COLUMNS[_c].append(_r)
-for _c in EQ_COLUMNS:
-    EQ_COLUMNS[_c].sort(reverse=True)  # bottom row first
+
+
+def _rebuild_eq_columns():
+    EQ_COLUMNS.clear()
+    for row_keys in PHYSICAL_KEYS_60HE:
+        for r, c in row_keys:
+            EQ_COLUMNS.setdefault(c, []).append(r)
+    for c in EQ_COLUMNS:
+        EQ_COLUMNS[c].sort(reverse=True)  # bottom row first
+
+
+_rebuild_eq_columns()
+
+
+def _resample(values: list[float], n: int) -> list[float]:
+    """Ajusta as bandas de áudio ao nº de colunas do teclado (interpolação linear)."""
+    if len(values) == n:
+        return list(values)
+    if not values:
+        return [0.0] * n
+    if n == 1:
+        return [float(values[0])]
+    out = []
+    for i in range(n):
+        pos = i * (len(values) - 1) / (n - 1)
+        lo = int(pos)
+        hi = min(lo + 1, len(values) - 1)
+        out.append(values[lo] + (values[hi] - values[lo]) * (pos - lo))
+    return out
 
 
 def eq_height_color(pos: int, total: int) -> tuple[int, int, int]:
@@ -1148,23 +1191,23 @@ class EqualizerEffect(Effect):
 
     def __init__(self):
         super().__init__()
-        self._bands = [0.0] * 14
-        self._peaks = [0.0] * 14
+        self._bands = [0.0] * LAYOUT_COLS
+        self._peaks = [0.0] * LAYOUT_COLS
         self._lock = threading.Lock()
 
     def set_bands(self, bands: list[float], peaks: list[float] = None):
         """Atualiza os dados de frequência."""
         with self._lock:
-            self._bands = bands[:14] + [0.0] * max(0, 14 - len(bands))
+            self._bands = _resample(bands, LAYOUT_COLS)
             if peaks:
-                self._peaks = peaks[:14] + [0.0] * max(0, 14 - len(peaks))
+                self._peaks = _resample(peaks, LAYOUT_COLS)
 
     def update(self, kb: WootFlowRGB, t: float):
         with self._lock:
             bands = self._bands.copy()
             peaks = self._peaks.copy()
 
-        for col in range(14):
+        for col in range(LAYOUT_COLS):
             col_rows = EQ_COLUMNS.get(col, [])
             num_keys = len(col_rows)
             if num_keys == 0:

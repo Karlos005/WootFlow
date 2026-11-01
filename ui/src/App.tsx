@@ -6,7 +6,7 @@ import { SoundReactive } from "./components/SoundReactive";
 import { PerKeyPanel } from "./components/PerKeyPanel";
 import { Settings } from "./components/Settings";
 import { WootilityPage } from "./components/WootilityPage";
-import { KeyboardPreview } from "./components/KeyboardPreview";
+import { WootilityKeyboard } from "./components/WootilityKeyboard";
 import type { Page } from "./types";
 import type { RGB } from "./types";
 
@@ -20,7 +20,7 @@ function hexToRgbTuple(hex: string): string {
 }
 
 export default function App() {
-  const { state, audio, frame, connected, diagnostics, send } = useWebSocket();
+  const { state, audio, frame, keyDepth, connected, diagnostics, send } = useWebSocket();
   const [page, setPage] = useState<Page>("effects");
   const [themeHex, setThemeHex] = useState<string>(() => localStorage.getItem("wootflow.theme") || "#00ffc8");
 
@@ -98,19 +98,14 @@ export default function App() {
         {page !== "perkey" && page !== "settings" && page !== "keyboard" && (
           <div className="px-5 pt-4 pb-2 shrink-0">
             <div className="wf-glass-panel wf-top-preview flex justify-center">
-            <KeyboardPreview
-              selectedKey={null}
-              onKeyClick={() => {}}
-              keyColors={keyColors}
-              accentColor={themeHex}
-            />
+            <WootilityKeyboard view="rgb" keyColors={keyColors} maxWidth={760} />
             </div>
           </div>
         )}
 
         {/* Page content */}
         <div className={`flex-1 p-5 overflow-y-auto custom-scroll ${page === "settings" ? "wf-settings-page" : ""}`}>
-          {page === "keyboard" && <WootilityPage state={state} send={send} keyColors={keyColors} />}
+          {page === "keyboard" && <WootilityPage state={state} send={send} keyColors={keyColors} keyDepth={keyDepth} />}
           {page === "effects" && <EffectsPanel state={state} send={send} />}
           {page === "sound" && <SoundReactive state={state} audio={audio} send={send} />}
           {page === "perkey" && <PerKeyPanel state={state} send={send} />}

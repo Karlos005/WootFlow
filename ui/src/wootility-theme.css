@@ -1,0 +1,76 @@
+/* Tema inspirado no Wootility: azul-marinho profundo, Nunito Sans, acento amarelo. */
+@font-face {
+  font-family: "Nunito Sans";
+  font-style: normal;
+  font-weight: 200 1000;
+  font-display: swap;
+  src: url("/fonts/nunito-sans-latin.woff2") format("woff2");
+}
+
+:root {
+  --wt-bg: #10151e;
+  --wt-panel: #1a2331;
+  --wt-panel-2: #232e41;
+  --wt-line: #303f59;
+  --wt-line-2: #3f5374;
+  --wt-text: #f8f9fb;
+  --wt-muted: #a7b6d0;
+  --wt-yellow: #ffd45c;
+  --wt-purple: #5b51ff;
+  --theme-accent: #ffd45c;
+  --theme-accent-rgb: 255 212 92;
+}
+
+body { font-family: "Nunito Sans", ui-sans-serif, system-ui, "Segoe UI", sans-serif; background: var(--wt-bg); color: var(--wt-text); letter-spacing: 0; }
+
+.wf-shell { background: var(--wt-bg); }
+.wf-shell::before { display: none; }
+
+.wf-glass-panel, .wf-panel, .wf-card {
+  background: var(--wt-panel);
+  border: 1px solid var(--wt-line);
+  border-radius: 14px;
+  backdrop-filter: none;
+  box-shadow: none;
+}
+.wf-card:hover { transform: none; border-color: var(--wt-line-2); }
+
+.wf-sidebar { width: 92px; background: #0c1018; border-right: 1px solid var(--wt-line) !important; backdrop-filter: none; }
+.wf-logo-mark { width: 44px; height: 44px; border-radius: 50%; color: #10151e; background: var(--wt-yellow); border: 0; box-shadow: none; font-weight: 800; }
+.wf-status-pills { background: transparent; border: 0; }
+
+.wf-nav { width: 76px; padding: 10px 0 8px; border-radius: 12px; display: flex; flex-direction: column; align-items: center; gap: 6px; border: 0; background: transparent; color: var(--wt-muted); cursor: pointer; position: relative; transition: background .15s, color .15s; }
+.wf-nav:hover { background: var(--wt-panel); color: var(--wt-text); }
+.wf-nav.on { background: var(--wt-panel-2); color: var(--wt-text); }
+.wf-nav.on::before { content: ""; position: absolute; left: -8px; top: 12px; bottom: 12px; width: 4px; border-radius: 0 4px 4px 0; background: var(--wt-yellow); }
+.wf-nav svg { width: 24px; height: 24px; stroke: currentColor; fill: none; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.wf-nav span { font-size: 11px; font-weight: 700; line-height: 1; }
+
+.wf-primary-btn { background: var(--wt-yellow); color: #10151e; border: 0; border-radius: 10px; font-weight: 800; letter-spacing: 0; }
+.wf-primary-btn:hover { background: #ffe08a; box-shadow: none; transform: none; }
+.wf-field { background: var(--wt-bg); border: 1px solid var(--wt-line); border-radius: 8px; color: var(--wt-text); }
+.wf-field:focus { border-color: var(--wt-yellow); box-shadow: none; background: var(--wt-bg); }
+.wf-section-title { color: var(--wt-muted); letter-spacing: .06em; }
+
+/* Página do teclado */
+.wt-profile { background: var(--wt-panel); border-color: var(--wt-line); }
+.wt-profile-badge { background: var(--wt-bg); color: var(--wt-yellow); box-shadow: 0 0 0 3px var(--wt-yellow); }
+.wt-chip, .wt-seg { background: var(--wt-panel-2); color: var(--wt-text); }
+.wt-chip-soft { background: rgba(255 212 92 / .14); color: var(--wt-yellow); }
+.wt-seg button.on { background: var(--wt-line-2); }
+.wt-keyboard { background: linear-gradient(#1f2837, #151c28); border-color: var(--wt-line); }
+.wt-keyboard::after { background: #121823; }
+.wt-card { background: var(--wt-panel); border-color: var(--wt-line); }
+.wt-btn { background: var(--wt-panel-2); }
+.wt-btn:hover:not(:disabled) { background: var(--wt-line); }
+.wt-btn:disabled { background: var(--wt-panel); color: #5a6a86; }
+.wt-vtrack { background: var(--wt-line-2); }
+.wt-vthumb { background: var(--wt-bg); border-color: var(--wt-yellow); box-shadow: none; }
+.wt-toggle { background: var(--wt-line); }
+.wt-toggle-on { background: var(--wt-yellow); }
+.wt-toggle-on .wt-toggle-knob { background: #10151e; }
+.wt-hslider input[type=range] { accent-color: var(--wt-yellow); }
+.wt-note { background: var(--wt-panel-2); }
+.wt-big { color: var(--wt-yellow); }
+.wt-hint { color: var(--wt-muted); font-weight: 700; }
+.wt-key-on { box-shadow: 0 0 0 2px var(--wt-yellow); }

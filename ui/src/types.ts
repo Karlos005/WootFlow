@@ -20,10 +20,19 @@ export interface AppState {
   autoStartEnabled?: boolean;
   autoStartSupported?: boolean;
   autoStartError?: string;
-  device?: {
-    model: string;
-    layout: string;
-  };
+  device?: DeviceInfo;
+}
+
+export interface DeviceInfo {
+  model: string;
+  layout: string;
+  name?: string;
+  form_factor?: string;
+  rows?: number;
+  cols?: number;
+  key_count?: number;
+  band_count?: number;
+  measured?: boolean;
 }
 
 export interface AudioData {

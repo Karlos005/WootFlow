@@ -27,9 +27,13 @@ from utils.wooting_rgb import WootFlowRGB, WOOTING_RGB_ROWS, WOOTING_RGB_COLS
 from core.effects_engine import (
     EqualizerEffect, ALL_KEYS,
     scale_color, PHYSICAL_KEYS_60HE, EQ_COLUMNS,
+    apply_profile,
 )
+from core.devices import profile_from_device_info
+import core.effects_engine as _effects_engine
 from core.effect_registry import EFFECT_LABELS, EFFECT_REGISTRY
 from core.analog_keys import AnalogTuning
+from core.analog_live import AnalogLive
 from audio_reactive import AudioReactive
 
 try:
@@ -698,7 +702,8 @@ class AppState:
                     self._device_info = self.kb.get_device_info()
                 except Exception:
                     self._device_info = None
-                log.info("Keyboard connected!")
+                self._adapt_to_device()
+                log.info("Keyboard connected: %s", _effects_engine.ACTIVE_PROFILE.name)
                 return True
             else:
                 log.warning("Keyboard not found")
@@ -707,6 +712,18 @@ class AppState:
         self.connected = False
         self._device_info = None
         return False
+
+    def _adapt_to_device(self):
+        """Ajusta o layout dos efeitos ao teclado detetado."""
+        profile = profile_from_device_info(self._device_info)
+        previous = _effects_engine.ACTIVE_PROFILE
+        if profile == previous:
+            return
+        apply_profile(profile)
+        self.eq_effect = EqualizerEffect()
+        if (self.mode == "effect" and self.current_effect is not None
+                and self.current_effect_name != "screen_ambience"):
+            self.transition_to("effect", self.current_effect_name)
 
     def disconnect_keyboard(self):
         """Cleanly disconnect the keyboard."""
@@ -898,8 +915,8 @@ class AppState:
     def _capture_frame(self, tkb: TrackedKeyboard):
         """Copy tracked frame into serializable dict."""
         colors = {}
-        for row in range(1, 6):  # SDK rows 1-5
-            for col in range(14):  # 60HE cols 0-13
+        for row in range(WOOTING_RGB_ROWS):
+            for col in range(_effects_engine.LAYOUT_COLS):
                 r, g, b = tkb.frame[row][col]
                 if r or g or b:
                     colors[f"{row}-{col}"] = [r, g, b]
@@ -961,6 +978,7 @@ class AppState:
             d["device"] = {
                 "model": self._device_info.get("model", "Unknown"),
                 "layout": self._device_info.get("layout", "Unknown"),
+                **_effects_engine.ACTIVE_PROFILE.to_dict(),
             }
         return d
 
@@ -1099,6 +1117,22 @@ async def health_check():
 
 
 # ── WebSocket (must be registered BEFORE static files mount) ──
+analog_live = AnalogLive()
+live_clients: set = set()
+
+
+def _set_live(ws, enabled: bool) -> bool:
+    """Liga/desliga a leitura de profundidade das teclas para um cliente."""
+    if enabled and ws not in live_clients:
+        if not analog_live.acquire():
+            return False
+        live_clients.add(ws)
+    elif not enabled and ws in live_clients:
+        live_clients.discard(ws)
+        analog_live.release()
+    return True
+
+
 @app.websocket("/ws")
 async def websocket_endpoint(ws: WebSocket):
     await ws.accept()
@@ -1109,21 +1143,28 @@ async def websocket_endpoint(ws: WebSocket):
     if state.frame_colors:
         await ws.send_json(state.get_full_frame())
 
-    # Tarefa de push de dados de áudio e frame (~15fps preview)
+    # Tarefa de push: profundidade das teclas ~30fps, frame e áudio ~15fps
     async def data_push():
+        tick = 0
+        last_keys = None
         while True:
             try:
-                # Push frame delta at ~15fps
-                if state.connected:
-                    delta = state.get_frame_delta()
-                    if delta:
-                        await ws.send_json(delta)
-                # Push audio data
-                if state.audio_running:
-                    data = state.get_audio_dict()
-                    if data:
-                        await ws.send_json(data)
-                await asyncio.sleep(1 / 15)  # 15fps for UI preview
+                if ws in live_clients:
+                    keys = analog_live.snapshot()
+                    if keys != last_keys:
+                        last_keys = dict(keys)
+                        await ws.send_json({"type": "analog_live", "keys": last_keys})
+                if tick % 2 == 0:
+                    if state.connected:
+                        delta = state.get_frame_delta()
+                        if delta:
+                            await ws.send_json(delta)
+                    if state.audio_running:
+                        data = state.get_audio_dict()
+                        if data:
+                            await ws.send_json(data)
+                tick += 1
+                await asyncio.sleep(1 / 30)
             except Exception:
                 break
 
@@ -1140,6 +1181,7 @@ async def websocket_endpoint(ws: WebSocket):
         log.exception("WebSocket error")
     finally:
         push_task.cancel()
+        _set_live(ws, False)
         state.clients.discard(ws)
 
 
@@ -1286,6 +1328,10 @@ async def handle_message(ws: WebSocket, msg: dict):
             state.analog.tachyon = bool(msg["tachyon"])
         state.save_settings()
         await broadcast(state.get_state_dict())
+
+    elif action == "analog_live":
+        if not _set_live(ws, bool(msg.get("enabled"))):
+            await ws.send_json({"type": "analog_live", "keys": {}, "error": analog_live.error})
 
     elif action == "reconnect":
         state.disconnect_keyboard()

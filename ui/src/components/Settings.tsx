@@ -1,6 +1,8 @@
+import type { DeviceInfo } from "../types";
+
 interface Props {
   connected: boolean;
-  device?: { model: string; layout: string };
+  device?: DeviceInfo;
   mode: string;
   autoStartEnabled: boolean;
   autoStartSupported: boolean;
@@ -41,6 +43,17 @@ export function Settings({
               : "Nenhum teclado detectado"}
           </span>
         </div>
+        {connected && device && (
+          <dl className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs text-gray-400 mb-3">
+            {device.form_factor && (<><dt>Formato</dt><dd className="text-gray-200">{device.form_factor}</dd></>)}
+            {device.key_count != null && (<><dt>Teclas com LED</dt><dd className="text-gray-200">{device.key_count}</dd></>)}
+            {device.rows != null && (<><dt>Matriz RGB</dt><dd className="text-gray-200">{device.rows}×{device.cols}</dd></>)}
+            {device.measured != null && (
+              <><dt>Efeitos adaptados</dt>
+              <dd className="text-gray-200">{device.measured ? "Layout medido" : "Grelha aproximada"}</dd></>
+            )}
+          </dl>
+        )}
         <p className="text-xs text-gray-500 mb-4">
           Estado atualizado em tempo real. Se desligares o cabo USB, este painel reflete de imediato.
         </p>
