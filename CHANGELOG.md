@@ -10,6 +10,20 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 
 ---
 
+## [3.3.0] - 2026-11-03
+
+### Added
+- Deteção do modelo Wooting ligado e adaptação dos efeitos ao seu formato (60HE com layout medido; outros formatos com grelha aproximada)
+- Pré-visualização do teclado ao estilo Wootility, também na barra de topo dos separadores Efeitos e Som
+- Vista "Ao vivo" na página Teclado com a profundidade de cada tecla (Wooting Analog SDK)
+- Modelo e formato do teclado mostrados na UI e em Definições
+
+### Changed
+- Interface com o aspeto do Wootility: paleta, fonte Nunito Sans e nova barra lateral com ícones
+- Screen Ambience passa a capturar o monitor 27G4ZR em vez do VG248
+
+---
+
 ## [3.2.3] - 2026-05-08
 
 ### Added
