@@ -117,6 +117,9 @@ export default function App() {
               autoStartEnabled={Boolean(state.autoStartEnabled)}
               autoStartSupported={Boolean(state.autoStartSupported)}
               autoStartError={state.autoStartError}
+              sleepDimMin={state.sleepDimMin ?? null}
+              sleepOffMin={state.sleepOffMin ?? null}
+              debounce={Boolean(state.debounce)}
               send={send}
               themeHex={themeHex}
               onThemeChange={setThemeHex}

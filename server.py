@@ -34,6 +34,7 @@ import core.effects_engine as _effects_engine
 from core.effect_registry import EFFECT_LABELS, EFFECT_REGISTRY
 from core.analog_keys import AnalogTuning
 from core.analog_live import AnalogLive
+from core.rgb_sleep import normalize_minutes, sleep_factor
 from audio_reactive import AudioReactive
 
 try:
@@ -55,11 +56,27 @@ class TrackedKeyboard:
         self.frame: list[list[tuple[int, int, int]]] = [
             [(0, 0, 0)] * WOOTING_RGB_COLS for _ in range(WOOTING_RGB_ROWS)
         ]
+        # Suspensão RGB: o frame guarda a cor original; só o hardware recebe a escalada.
+        self.scale = 1.0
 
     def array_set_single(self, row: int, col: int, r: int, g: int, b: int) -> bool:
         if 0 <= row < WOOTING_RGB_ROWS and 0 <= col < WOOTING_RGB_COLS:
             self.frame[row][col] = (r, g, b)
+        s = self.scale
+        if s != 1.0:
+            r, g, b = int(r * s), int(g * s), int(b * s)
         return self._kb.array_set_single(row, col, r, g, b)
+
+    def set_scale(self, scale: float):
+        """Muda o brilho de suspensão e reenvia já o frame atual."""
+        if scale == self.scale:
+            return
+        self.scale = scale
+        for row in range(WOOTING_RGB_ROWS):
+            for col in range(WOOTING_RGB_COLS):
+                r, g, b = self.frame[row][col]
+                self._kb.array_set_single(row, col, int(r * scale), int(g * scale), int(b * scale))
+        self._kb.array_update()
 
     def array_update(self) -> bool:
         return self._kb.array_update()
@@ -453,6 +470,12 @@ class AppState:
         # Actuation point / Rapid Trigger tuning (per key, stored locally)
         self.analog = AnalogTuning()
 
+        # Suspensão RGB (software): minutos sem premir teclas; None = nunca
+        self.sleep_dim_min: int | None = None
+        self.sleep_off_min: int | None = None
+        self.debounce = False  # guardado; o filtro real só existe no firmware
+        self.last_activity = time.time()
+
         # Keyboard input listener (pynput)
         self._kb_listener = None
 
@@ -492,6 +515,9 @@ class AppState:
         self.mode = s.get("mode", self.mode)
         self.auto_start_enabled = bool(s.get("auto_start", self.auto_start_enabled))
         self.analog = AnalogTuning.from_dict(s.get("analog"))
+        self.sleep_dim_min = normalize_minutes(s.get("sleep_dim_min"))
+        self.sleep_off_min = normalize_minutes(s.get("sleep_off_min"))
+        self.debounce = bool(s.get("debounce", self.debounce))
         log.info("Settings loaded: effect=%s brightness=%.0f%%",
                  self.current_effect_name, self.brightness * 100)
 
@@ -690,6 +716,9 @@ class AppState:
             "mode": self.mode,
             "auto_start": self.auto_start_enabled,
             "analog": self.analog.to_dict(),
+            "sleep_dim_min": self.sleep_dim_min,
+            "sleep_off_min": self.sleep_off_min,
+            "debounce": self.debounce,
         })
 
     def connect_keyboard(self) -> bool:
@@ -782,6 +811,7 @@ class AppState:
         if not HAS_PYNPUT or self._kb_listener is not None:
             return
         def on_press(key):
+            self.last_activity = time.time()
             pos = _get_key_pos(key)
             if pos is None:
                 return
@@ -794,7 +824,7 @@ class AppState:
                     self.current_effect.trigger(row, col)
 
         def on_release(key):
-            return None
+            self.last_activity = time.time()
 
         self._kb_listener = pynput_kb.Listener(on_press=on_press, on_release=on_release)
         self._kb_listener.daemon = True
@@ -836,6 +866,9 @@ class AppState:
                         continue
 
                 tkb = self.tracked_kb
+                tkb.set_scale(sleep_factor(
+                    now - self.last_activity, self.sleep_dim_min, self.sleep_off_min,
+                ))
 
                 with self._transition_lock:
                     self._enforce_runtime_invariants_locked()
@@ -971,6 +1004,9 @@ class AppState:
             "autoStartEnabled": self.auto_start_enabled,
             "autoStartSupported": self.auto_start_supported,
             "analog": self.analog.to_dict(),
+            "sleepDimMin": self.sleep_dim_min,
+            "sleepOffMin": self.sleep_off_min,
+            "debounce": self.debounce,
         }
         if self.auto_start_error:
             d["autoStartError"] = self.auto_start_error
@@ -1326,6 +1362,27 @@ async def handle_message(ws: WebSocket, msg: dict):
             state.analog.apply(key_ids, patch)
         if "tachyon" in msg:
             state.analog.tachyon = bool(msg["tachyon"])
+        state.save_settings()
+        await broadcast(state.get_state_dict())
+
+    elif action == "set_sleep":
+        if "dim_min" in msg:
+            state.sleep_dim_min = normalize_minutes(msg["dim_min"])
+        if "off_min" in msg:
+            state.sleep_off_min = normalize_minutes(msg["off_min"])
+        # O brilho reduzido nunca pode vir depois de apagar.
+        dim, off = state.sleep_dim_min, state.sleep_off_min
+        if dim is not None and off is not None and dim > off:
+            if "off_min" in msg and "dim_min" not in msg:
+                state.sleep_dim_min = off
+            else:
+                state.sleep_off_min = dim
+        state.last_activity = time.time()
+        state.save_settings()
+        await broadcast(state.get_state_dict())
+
+    elif action == "set_debounce":
+        state.debounce = bool(msg.get("enabled"))
         state.save_settings()
         await broadcast(state.get_state_dict())
 

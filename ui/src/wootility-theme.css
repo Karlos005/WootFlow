@@ -74,3 +74,16 @@ body { font-family: "Nunito Sans", ui-sans-serif, system-ui, "Segoe UI", sans-se
 .wt-big { color: var(--wt-yellow); }
 .wt-hint { color: var(--wt-muted); font-weight: 700; }
 .wt-key-on { box-shadow: 0 0 0 2px var(--wt-yellow); }
+
+/* ── Suspensão RGB (slider por passos) ── */
+.wf-step { margin-bottom: 22px; }
+.wf-step-label { font-size: 12px; font-weight: 800; letter-spacing: .03em; text-transform: uppercase; color: #e8edf8; margin-bottom: 12px; }
+.wf-step-track { position: relative; height: 18px; }
+.wf-step-track::before { content: ""; position: absolute; left: 0; right: 0; top: 7px; height: 4px; border-radius: 2px; background: var(--wt-line-2, #4a5470); }
+.wf-step-fill { position: absolute; left: 0; top: 7px; height: 4px; border-radius: 2px; background: var(--wt-yellow, #ffd45c); }
+.wf-step-thumb { position: absolute; top: 0; width: 18px; height: 18px; margin-left: -9px; border-radius: 50%; background: var(--wt-bg, #10151e); border: 2px solid var(--wt-yellow, #ffd45c); pointer-events: none; }
+.wf-step-track input { position: absolute; inset: 0; width: 100%; margin: 0; opacity: 0; cursor: pointer; }
+.wf-step-ticks { display: flex; justify-content: space-between; margin-top: 8px; font-size: 12px; color: #98a2b8; }
+.wf-step-ticks .on { color: #fff; font-weight: 800; }
+.wf-step-note { margin-top: 8px; text-align: center; font-size: 12px; color: #98a2b8; }
+.wf-beta { margin-left: 6px; padding: 1px 6px; border-radius: 6px; background: var(--wt-yellow, #ffd45c); color: #10151e; font-size: 10px; font-weight: 800; vertical-align: middle; }

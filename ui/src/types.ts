@@ -21,6 +21,9 @@ export interface AppState {
   autoStartSupported?: boolean;
   autoStartError?: string;
   device?: DeviceInfo;
+  sleepDimMin?: number | null;
+  sleepOffMin?: number | null;
+  debounce?: boolean;
 }
 
 export interface DeviceInfo {

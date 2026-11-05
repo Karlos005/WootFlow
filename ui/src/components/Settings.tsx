@@ -7,9 +7,44 @@ interface Props {
   autoStartEnabled: boolean;
   autoStartSupported: boolean;
   autoStartError?: string;
+  sleepDimMin: number | null;
+  sleepOffMin: number | null;
+  debounce: boolean;
   send: (data: Record<string, unknown>) => void;
   themeHex: string;
   onThemeChange: (value: string) => void;
+}
+
+const SLEEP_STEPS: (number | null)[] = [1, 3, 5, 10, 20, 30, 60, null];
+
+/** Slider por passos ao estilo do Wootility; o último passo é "Nunca". */
+function StepSlider(props: { label: string; value: number | null; onChange: (v: number | null) => void }) {
+  const idx = SLEEP_STEPS.indexOf(props.value);
+  const pct = (idx / (SLEEP_STEPS.length - 1)) * 100;
+  return (
+    <div className="wf-step">
+      <div className="wf-step-label">{props.label}</div>
+      <div className="wf-step-track">
+        <div className="wf-step-fill" style={{ width: `${pct}%` }} />
+        <div className="wf-step-thumb" style={{ left: `${pct}%` }} />
+        <input
+          type="range"
+          min={0}
+          max={SLEEP_STEPS.length - 1}
+          step={1}
+          value={idx}
+          aria-label={props.label}
+          onChange={(e) => props.onChange(SLEEP_STEPS[Number(e.target.value)])}
+        />
+      </div>
+      <div className="wf-step-ticks">
+        {SLEEP_STEPS.map((s, i) => (
+          <span key={i} className={i === idx ? "on" : ""}>{s === null ? "Nunca" : `${s}'`}</span>
+        ))}
+      </div>
+      <div className="wf-step-note">Minutos desde a última tecla pressionada</div>
+    </div>
+  );
 }
 
 export function Settings({
@@ -19,6 +54,9 @@ export function Settings({
   autoStartEnabled,
   autoStartSupported,
   autoStartError,
+  sleepDimMin,
+  sleepOffMin,
+  debounce,
   send,
   themeHex,
   onThemeChange,
@@ -88,6 +126,51 @@ export function Settings({
             </button>
           )}
         </div>
+      </div>
+
+      {/* RGB sleep */}
+      <div className="wf-card">
+        <h3 className="text-sm font-medium text-gray-300 mb-1">Modo de Suspensão RGB</h3>
+        <p className="text-xs text-gray-500 mb-4">
+          Controle quantos minutos de inatividade até o teclado diminuir o brilho do RGB e, em seguida, desligar
+          completamente. Qualquer tecla acorda o teclado.
+        </p>
+        <StepSlider
+          label="Desligar após"
+          value={sleepOffMin}
+          onChange={(v) => send({ action: "set_sleep", off_min: v })}
+        />
+        <StepSlider
+          label="Diminuir após"
+          value={sleepDimMin}
+          onChange={(v) => send({ action: "set_sleep", dim_min: v })}
+        />
+        <p className="text-xs text-gray-500 mt-3">Aplicado pelo WootFlow enquanto estiver a correr.</p>
+      </div>
+
+      {/* Debounce */}
+      <div className="wf-card">
+        <div className="flex items-center justify-between gap-4 mb-2">
+          <h3 className="text-sm font-medium text-gray-300">
+            Filtro Debounce <span className="wf-beta">BETA</span>
+          </h3>
+          <button
+            type="button"
+            role="switch"
+            aria-checked={debounce}
+            onClick={() => send({ action: "set_debounce", enabled: !debounce })}
+            className={`wt-toggle ${debounce ? "wt-toggle-on" : ""}`}
+          >
+            <span className="wt-toggle-knob" />
+          </button>
+        </div>
+        <p className="text-xs text-gray-500">
+          Ignora pressionamentos indesejados causados pelas teclas que retornam brevemente para baixo ao serem soltas.
+          Este filtro não tem um impacto na latência.
+        </p>
+        <p className="text-xs text-amber-300 mt-3">
+          A definição fica guardada, mas só tem efeito quando a escrita no firmware estiver disponível.
+        </p>
       </div>
 
       {/* Theme */}
