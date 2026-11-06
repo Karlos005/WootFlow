@@ -4,6 +4,7 @@ import { Sidebar } from "./components/Sidebar";
 import { EffectsPanel } from "./components/EffectsPanel";
 import { SoundReactive } from "./components/SoundReactive";
 import { PerKeyPanel } from "./components/PerKeyPanel";
+import { GamesPage } from "./components/GamesPage";
 import { Settings } from "./components/Settings";
 import { WootilityPage } from "./components/WootilityPage";
 import { WootilityKeyboard } from "./components/WootilityKeyboard";
@@ -20,7 +21,10 @@ function hexToRgbTuple(hex: string): string {
 }
 
 export default function App() {
-  const { state, audio, frame, keyDepth, connected, diagnostics, send } = useWebSocket();
+  const {
+    state, audio, frame, keyDepth, processes, profileError, setProfileError,
+    monitors, screenCapture, hudProbe, connected, diagnostics, send,
+  } = useWebSocket();
   const [page, setPage] = useState<Page>("effects");
   const [themeHex, setThemeHex] = useState<string>(() => localStorage.getItem("wootflow.theme") || "#00ffc8");
 
@@ -108,6 +112,18 @@ export default function App() {
           {page === "keyboard" && <WootilityPage state={state} send={send} keyColors={keyColors} keyDepth={keyDepth} />}
           {page === "effects" && <EffectsPanel state={state} send={send} />}
           {page === "sound" && <SoundReactive state={state} audio={audio} send={send} />}
+          {page === "games" && (
+            <GamesPage
+              state={state}
+              send={send}
+              processes={processes}
+              monitors={monitors}
+              screenCapture={screenCapture}
+              hudProbe={hudProbe}
+              error={profileError}
+              clearError={() => setProfileError("")}
+            />
+          )}
           {page === "perkey" && <PerKeyPanel state={state} send={send} />}
           {page === "settings" && (
             <Settings

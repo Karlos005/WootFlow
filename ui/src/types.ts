@@ -24,6 +24,62 @@ export interface AppState {
   sleepDimMin?: number | null;
   sleepOffMin?: number | null;
   debounce?: boolean;
+  gameProfiles?: GameProfilesState;
+}
+
+export interface GameProfile {
+  id: string;
+  name: string;
+  processes: string[];
+  effect: string;
+  trigger: "running" | "focused";
+  enabled: boolean;
+  brightness: number | null;
+  speed: number | null;
+  color1: number[] | null;
+  color2: number[] | null;
+  hud: HudConfig | null;
+}
+
+export interface HudMeter {
+  id: string;
+  name: string;
+  region: number[]; // x, y, largura, altura (0..1 no monitor)
+  color: number[];
+  tolerance: number;
+  orientation: "horizontal" | "vertical";
+  row: number;
+  color_full: number[];
+  color_empty: number[];
+  low_threshold: number;
+  flash_on_drop: boolean;
+}
+
+export interface HudConfig {
+  monitor: number;
+  meters: HudMeter[];
+}
+
+export interface ScreenCapture {
+  monitor: number;
+  width?: number;
+  height?: number;
+  image?: string;
+  error?: string;
+}
+
+export interface MonitorInfo {
+  index: number;
+  width: number;
+  height: number;
+  primary: boolean;
+}
+
+export interface GameProfilesState {
+  supported: boolean;
+  enabled: boolean;
+  active: string | null;
+  profiles: GameProfile[];
 }
 
 export interface DeviceInfo {
@@ -49,7 +105,7 @@ export interface FrameData {
   delta: boolean;
 }
 
-export type Page = "keyboard" | "effects" | "sound" | "perkey" | "settings";
+export type Page = "keyboard" | "effects" | "sound" | "games" | "perkey" | "settings";
 
 export interface KeyTuning {
   actuation_mm: number;

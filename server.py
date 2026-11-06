@@ -35,6 +35,10 @@ from core.effect_registry import EFFECT_LABELS, EFFECT_REGISTRY
 from core.analog_keys import AnalogTuning
 from core.analog_live import AnalogLive
 from core.rgb_sleep import normalize_minutes, sleep_factor
+from core.game_profiles import GameProfile, GameProfileStore, GameWatcher, visible_window_processes
+from core.hud_tracker import (
+    Meter, TRACKER as hud_tracker, capture_png_data_url, list_monitors, probe as hud_probe,
+)
 from audio_reactive import AudioReactive
 
 try:
@@ -477,6 +481,16 @@ class AppState:
         self.debounce = False  # guardado; o filtro real só existe no firmware
         self.last_activity = time.time()
 
+        # Perfis de jogo: efeito automático enquanto um jogo está aberto
+        self.game_store = GameProfileStore()
+        self.game_profiles_enabled = True
+        self.active_game_id: str | None = None
+        self._game_restore: dict | None = None  # definições do utilizador antes do jogo
+        self.state_version = 0
+        self.game_watcher = GameWatcher(
+            self.game_store, self._on_game_change, is_enabled=lambda: self.game_profiles_enabled,
+        )
+
         # Keyboard input listener (pynput)
         self._kb_listener = None
 
@@ -519,6 +533,8 @@ class AppState:
         self.sleep_dim_min = normalize_minutes(s.get("sleep_dim_min"))
         self.sleep_off_min = normalize_minutes(s.get("sleep_off_min"))
         self.debounce = bool(s.get("debounce", self.debounce))
+        self.game_store.load(s.get("game_profiles"))
+        self.game_profiles_enabled = bool(s.get("game_profiles_enabled", self.game_profiles_enabled))
         log.info("Settings loaded: effect=%s brightness=%.0f%%",
                  self.current_effect_name, self.brightness * 100)
 
@@ -706,21 +722,82 @@ class AppState:
 
     def save_settings(self):
         """Persist current settings to disk."""
+        # Com um perfil de jogo ativo guardam-se as definições do utilizador, não as do jogo.
+        base = self._game_restore or {
+            "brightness": self.brightness, "speed": self.speed,
+            "color1": self.color1, "color2": self.color2,
+            "effect": self.current_effect_name, "mode": self.mode,
+        }
         _save_settings({
-            "brightness": self.brightness,
-            "speed": self.speed,
-            "color1": list(self.color1),
-            "color2": list(self.color2),
+            "brightness": base["brightness"],
+            "speed": base["speed"],
+            "color1": list(base["color1"]),
+            "color2": list(base["color2"]),
             "magnetic_influence": self.magnetic_influence,
             "liquid_deform": self.liquid_deform,
-            "effect": self.current_effect_name,
-            "mode": self.mode,
+            "effect": base["effect"],
+            "mode": base["mode"],
             "auto_start": self.auto_start_enabled,
             "analog": self.analog.to_dict(),
             "sleep_dim_min": self.sleep_dim_min,
             "sleep_off_min": self.sleep_off_min,
             "debounce": self.debounce,
+            "game_profiles": self.game_store.to_list(),
+            "game_profiles_enabled": self.game_profiles_enabled,
         })
+
+    def _on_game_change(self, profile: "GameProfile | None"):
+        """Chamado pelo GameWatcher: aplica o perfil do jogo ou repõe as definições."""
+        with self._transition_lock:
+            if profile is None:
+                self._restore_after_game_locked()
+            else:
+                self._apply_game_profile_locked(profile)
+            self.state_version += 1
+
+    def _apply_game_profile_locked(self, profile: "GameProfile"):
+        if self._game_restore is None:
+            if self.mode == "off":
+                return  # LEDs desligados de propósito: o jogo não os volta a acender
+            self._game_restore = {
+                "brightness": self.brightness, "speed": self.speed,
+                "color1": self.color1, "color2": self.color2,
+                "effect": self.current_effect_name, "mode": self.mode,
+            }
+        if profile.brightness is not None:
+            self.brightness = profile.brightness
+        if profile.speed is not None:
+            self.speed = profile.speed
+        if profile.color1 is not None:
+            self.color1 = profile.color1
+        if profile.color2 is not None:
+            self.color2 = profile.color2
+        effect = profile.effect if (profile.effect in EFFECT_REGISTRY or profile.effect == "screen_ambience") else "breathing"
+        if effect == "hud_meters" and profile.hud:
+            hud_tracker.configure(profile.hud)
+            hud_tracker.start()
+        else:
+            hud_tracker.stop()
+            hud_tracker.configure(None)
+        self.transition_to("effect", effect)
+        self.active_game_id = profile.id
+        log.info("Game profile applied: %s (%s)", profile.name, effect)
+
+    def _restore_after_game_locked(self):
+        base, self._game_restore = self._game_restore, None
+        self.active_game_id = None
+        hud_tracker.stop()
+        hud_tracker.configure(None)
+        if base is None:
+            return
+        self.brightness, self.speed = base["brightness"], base["speed"]
+        self.color1, self.color2 = base["color1"], base["color2"]
+        mode, effect = base["mode"], base["effect"]
+        if mode in ("audio", "perkey", "off"):
+            self.transition_to(mode)
+        else:
+            self.transition_to("effect", effect if (effect in EFFECT_REGISTRY or effect == "screen_ambience") else "breathing")
+        log.info("Game profile ended: settings restored")
 
     def connect_keyboard(self) -> bool:
         try:
@@ -843,9 +920,12 @@ class AppState:
         self.start_keyboard_listener()
         self._thread = threading.Thread(target=self._main_loop, daemon=True)
         self._thread.start()
+        self.game_watcher.start()
 
     def stop_loop(self):
         self.running = False
+        self.game_watcher.stop()
+        hud_tracker.stop()
         with self._transition_lock:
             self._stop_active_effects_locked(reason="loop-stop")
         self.stop_keyboard_listener()
@@ -1008,6 +1088,12 @@ class AppState:
             "sleepDimMin": self.sleep_dim_min,
             "sleepOffMin": self.sleep_off_min,
             "debounce": self.debounce,
+            "gameProfiles": {
+                "supported": sys.platform == "win32",
+                "enabled": self.game_profiles_enabled,
+                "active": self.active_game_id,
+                "profiles": self.game_store.to_list(),
+            },
         }
         if self.auto_start_error:
             d["autoStartError"] = self.auto_start_error
@@ -1184,8 +1270,13 @@ async def websocket_endpoint(ws: WebSocket):
     async def data_push():
         tick = 0
         last_keys = None
+        last_version = state.state_version
         while True:
             try:
+                if state.state_version != last_version:
+                    # Mudança vinda de fora de um pedido (ex.: um jogo abriu ou fechou)
+                    last_version = state.state_version
+                    await ws.send_json(state.get_state_dict())
                 if ws in live_clients:
                     keys = analog_live.snapshot()
                     if keys != last_keys:
@@ -1381,6 +1472,62 @@ async def handle_message(ws: WebSocket, msg: dict):
         state.last_activity = time.time()
         state.save_settings()
         await broadcast(state.get_state_dict())
+
+    elif action == "set_game_profiles_enabled":
+        state.game_profiles_enabled = bool(msg.get("enabled"))
+        state.save_settings()
+        await asyncio.to_thread(state.game_watcher.tick)
+        state.state_version += 1
+        await broadcast(state.get_state_dict())
+
+    elif action == "save_game_profile":
+        profile = GameProfile.from_dict(msg.get("profile"))
+        valid_effect = profile and (profile.effect in EFFECT_REGISTRY or profile.effect == "screen_ambience")
+        if not profile or not valid_effect or not state.game_store.upsert(profile):
+            await ws.send_json({"type": "game_profile_error", "message": "Perfil inválido: precisa de nome, de um executável e de um efeito existente."})
+        else:
+            state.save_settings()
+            await asyncio.to_thread(state.game_watcher.tick)
+            state.state_version += 1
+            await broadcast(state.get_state_dict())
+
+    elif action == "delete_game_profile":
+        if state.game_store.delete(str(msg.get("id", ""))):
+            state.save_settings()
+            await asyncio.to_thread(state.game_watcher.tick)
+            state.state_version += 1
+            await broadcast(state.get_state_dict())
+
+    elif action == "list_monitors":
+        try:
+            monitors = await asyncio.to_thread(list_monitors)
+        except Exception:
+            monitors = []
+        await ws.send_json({"type": "monitors", "items": monitors})
+
+    elif action == "capture_screen":
+        monitor = max(0, min(7, int(msg.get("monitor", 0))))
+        await asyncio.sleep(max(0.0, min(10.0, float(msg.get("delay", 0)))))  # tempo para pôr o jogo à frente
+        try:
+            shot = await asyncio.to_thread(capture_png_data_url, monitor)
+        except Exception as exc:
+            log.warning("Screen capture failed: %s", exc)
+            shot = {"error": "Não foi possível capturar o ecrã"}
+        await ws.send_json({"type": "screen_capture", "monitor": monitor, **(shot or {"error": "Monitor não encontrado"})})
+
+    elif action == "hud_probe":
+        meter = Meter.from_dict(msg.get("meter"))
+        monitor = max(0, min(7, int(msg.get("monitor", 0))))
+        try:
+            fraction = await asyncio.to_thread(hud_probe, monitor, meter) if meter else None
+        except Exception as exc:
+            log.warning("HUD probe failed: %s", exc)
+            fraction = None
+        await ws.send_json({"type": "hud_probe", "id": meter.id if meter else None, "fraction": fraction})
+
+    elif action == "list_processes":
+        names = await asyncio.to_thread(visible_window_processes)
+        await ws.send_json({"type": "processes", "names": names})
 
     elif action == "set_debounce":
         state.debounce = bool(msg.get("enabled"))

@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, useCallback } from "react";
-import type { AppState, AudioData, FrameData } from "../types";
+import type { AppState, AudioData, FrameData, MonitorInfo, ScreenCapture } from "../types";
 
 type WsStatus = "idle" | "connecting" | "connected" | "retrying" | "error";
 
@@ -35,6 +35,11 @@ export function useWebSocket() {
   const [audio, setAudio] = useState<AudioData | null>(null);
   const [frame, setFrame] = useState<FrameData | null>(null);
   const [keyDepth, setKeyDepth] = useState<Record<string, number>>({});
+  const [processes, setProcesses] = useState<string[]>([]);
+  const [profileError, setProfileError] = useState<string>("");
+  const [monitors, setMonitors] = useState<MonitorInfo[]>([]);
+  const [screenCapture, setScreenCapture] = useState<ScreenCapture | null>(null);
+  const [hudProbe, setHudProbe] = useState<{ id: string | null; fraction: number | null } | null>(null);
   const frameRef = useRef<Record<string, number[]>>({});
   const [connected, setConnected] = useState(false);
   const reconnectTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
@@ -123,6 +128,16 @@ export function useWebSocket() {
           setState(msg as AppState);
         } else if (msg.type === "analog_live") {
           setKeyDepth(msg.keys ?? {});
+        } else if (msg.type === "processes") {
+          setProcesses(Array.isArray(msg.names) ? msg.names : []);
+        } else if (msg.type === "monitors") {
+          setMonitors(Array.isArray(msg.items) ? msg.items : []);
+        } else if (msg.type === "screen_capture") {
+          setScreenCapture(msg as ScreenCapture);
+        } else if (msg.type === "hud_probe") {
+          setHudProbe({ id: msg.id ?? null, fraction: msg.fraction ?? null });
+        } else if (msg.type === "game_profile_error") {
+          setProfileError(String(msg.message ?? "Erro ao guardar o perfil"));
         } else if (msg.type === "audio") {
           setAudio(msg as AudioData);
         } else if (msg.type === "frame") {
@@ -193,5 +208,8 @@ export function useWebSocket() {
     }
   }, []);
 
-  return { state, audio, frame, keyDepth, connected, diagnostics, send };
+  return {
+    state, audio, frame, keyDepth, processes, profileError, setProfileError,
+    monitors, screenCapture, setScreenCapture, hudProbe, connected, diagnostics, send,
+  };
 }

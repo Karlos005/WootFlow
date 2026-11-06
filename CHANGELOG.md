@@ -8,6 +8,15 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 
 ## [Unreleased]
 
+### Added
+- Perfis de jogo (página Jogos): cada perfil liga um ou mais executáveis a um efeito, com brilho, velocidade e cores opcionais. O WootFlow troca de efeito quando o jogo abre (ou fica em primeiro plano) e repõe o teu efeito quando fecha
+- Efeito «HUD do jogo»: lê barras do HUD no ecrã (vida, escudo...) e mostra-as numa fila do teclado, com pulsação em vida baixa e flash ao levar dano. Calibração na página Jogos (captura, região e cor da barra)
+- Modo de Suspensão RGB e filtro Debounce nas Definições (o debounce só fica guardado)
+
+### Fixed
+- Leitura do tipo e layout do teclado pelo SDK (os enums têm 4 bytes)
+- Geometria do Screen Ambience alinhada com as 66 células do 60HE+
+
 ---
 
 ## [3.3.0] - 2026-11-03
