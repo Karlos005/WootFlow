@@ -12,5 +12,11 @@ def test_space_lights_all_five_leds_and_unknown_codes_are_skipped():
 
 
 def test_no_key_id_is_shared_between_hid_codes():
-    ids = [k for keys in HID_TO_KEY_IDS.values() for k in keys]
+    # 49 e 50 são aliases deliberados da tecla ISO ao lado do Enter (ver analog_live.py).
+    ids = [k for code, keys in HID_TO_KEY_IDS.items() if code != 50 for k in keys]
     assert len(ids) == len(set(ids))
+
+
+def test_iso_key_next_to_enter_accepts_both_hid_codes():
+    assert depths_to_key_ids([49], [0.5]) == {"3-12": 0.5}
+    assert depths_to_key_ids([50], [0.5]) == {"3-12": 0.5}

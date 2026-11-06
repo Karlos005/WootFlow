@@ -6,7 +6,7 @@ Comunica diretamente com a DLL do Wooting RGB SDK.
 import ctypes
 import os
 import sys
-from ctypes import c_bool, c_uint8, POINTER, Structure, c_char_p
+from ctypes import c_bool, c_int32, c_uint8, POINTER, Structure, c_char_p
 
 
 # Constantes do teclado
@@ -22,9 +22,10 @@ class WootingUSBMeta(Structure):
         ("max_rows", c_uint8),
         ("max_columns", c_uint8),
         ("led_index_max", c_uint8),
-        ("device_type", c_uint8),     # WOOTING_DEVICE_TYPE enum
+        # Os enums do SDK em C ocupam 4 bytes (sdk/wooting-usb.h); com 1 byte lia-se o padding.
+        ("device_type", c_int32),     # WOOTING_DEVICE_TYPE enum
         ("v2_interface", c_bool),
-        ("layout", c_uint8),          # WOOTING_DEVICE_LAYOUT enum (0=ANSI, 1=ISO)
+        ("layout", c_int32),          # WOOTING_DEVICE_LAYOUT enum (0=ANSI, 1=ISO)
         ("uses_small_packets", c_bool),
         ("uses_multi_report", c_bool),
     ]
@@ -210,9 +211,10 @@ class WootFlowRGB:
 
     def get_device_info(self):
         """Retorna informações sobre o dispositivo conectado."""
-        device_types = {0: "Keyboard 10KL", 1: "Keyboard TKL", 2: "Keyboard Full",
-                        3: "Keyboard 60%", 4: "Keyboard 3KL", 5: "Keypad"}
-        layouts = {0: "ANSI", 1: "ISO"}
+        device_types = {1: "Keyboard TKL", 2: "Keyboard Full", 3: "Keyboard 60%",
+                        4: "Keypad 3KL", 5: "Keyboard 80%"}
+        layouts = {-1: "Unknown", 0: "ANSI", 1: "ISO", 2: "JIS",
+                   3: "ANSI Split", 4: "ISO Split"}
         info_ptr = self._sdk.wooting_rgb_device_info()
         if info_ptr:
             info = info_ptr.contents

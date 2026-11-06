@@ -153,6 +153,7 @@ SCANCODE_TO_SDK = {
     0x27: (3, 10),  # key after L
     0x28: (3, 11),  # key after previous
     0x29: (3, 12),  # key before Enter
+    0x2B: (3, 12),  # ISO "#" / "~" key before Enter (scancode padrão desta posição)
     0x1C: (3, 13),  # Enter
 
     # Row 4

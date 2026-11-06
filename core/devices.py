@@ -11,14 +11,13 @@ from dataclasses import dataclass, field
 
 WOOTING_VID = 0x31E3
 
-# Valores de WOOTING_DEVICE_TYPE observados no SDK (0 não está confirmado).
+# Valores de WOOTING_DEVICE_TYPE em sdk/wooting-usb.h.
 FORM_FACTOR_BY_TYPE = {
-    0: "10KL",
     1: "TKL",
     2: "Full",
     3: "60%",
     4: "3KL",
-    5: "Keypad",
+    5: "80%",
 }
 
 # Layout medido do 60HE ISO: linhas do SDK 1..5 (sem a linha de F-keys).
