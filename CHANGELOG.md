@@ -8,6 +8,10 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 
 ## [Unreleased]
 
+---
+
+## [3.4.0] - 2026-11-06
+
 ### Added
 - Perfis de jogo (página Jogos): cada perfil liga um ou mais executáveis a um efeito, com brilho, velocidade e cores opcionais. O WootFlow troca de efeito quando o jogo abre (ou fica em primeiro plano) e repõe o teu efeito quando fecha
 - Efeito «HUD do jogo»: lê barras do HUD no ecrã (vida, escudo...) e mostra-as numa fila do teclado, com pulsação em vida baixa e flash ao levar dano. Calibração na página Jogos (captura, região e cor da barra)
@@ -16,6 +20,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 ### Fixed
 - Leitura do tipo e layout do teclado pelo SDK (os enums têm 4 bytes)
 - Geometria do Screen Ambience alinhada com as 66 células do 60HE+
+- Tecla ISO ao lado do Enter: a leitura analógica aceita o código HID 49 e os efeitos reativos o scancode 0x2B
 
 ---
 

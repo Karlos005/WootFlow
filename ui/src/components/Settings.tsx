@@ -236,7 +236,7 @@ export function Settings({
       <div className="wf-card">
         <h3 className="text-sm font-medium text-gray-300 mb-3">Sobre</h3>
         <div className="space-y-1 text-sm text-gray-500">
-          <p>WootFlow Control v3.3.0</p>
+          <p>WootFlow Control v3.4.0</p>
           <p>Layout: ISO PT 60HE</p>
           <p>Backend: Python + FastAPI + WebSocket</p>
           <p>Frontend: React + Tailwind + pywebview</p>
